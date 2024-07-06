@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motion Detection Alarm</title>
+    <style>
+        #video-container {
+            position: relative;
+            width: 640px;
+            height: 480px;
+        }
+        #webcam, #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #status {
+            margin-top: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body
+<center>
+    <h1>Motion Detection Alarm</h1>
+    <div id="video-container">
+        <video id="webcam" width="640" height="480" autoplay></video>
+        <canvas id="canvas" width="640" height="480"></canvas>
+    </div>
+    <div id="status">Status: No motion detected</div>
+    <audio id="alarm" src="Burglary Alarm.mp3" preload="auto" loop></audio>
+    <button id="stopAlarm" style="display: none;">Stop Alarm</button>
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const status = document.getElementById('status');
+        const alarm = document.getElementById('alarm');
+        const stopAlarmButton = document.getElementById('stopAlarm');
+        let lastImageData;
+        const motionThreshold = 30;
+        const motionPixels = 1000;
+        let isAlarmPlaying = false;
+
+        async function setupWebcam() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            return new Promise(resolve => {
+                video.onloadedmetadata = () => {
+                    resolve(video);
+                };
+            });
+        }
+
+        function detectMotion() {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            if (lastImageData) {
+                let motionDetected = 0;
+                for (let i = 0; i < imageData.data.length; i += 4) {
+                    const rdiff = Math.abs(imageData.data[i] - lastImageData.data[i]);
+                    const gdiff = Math.abs(imageData.data[i+1] - lastImageData.data[i+1]);
+                    const bdiff = Math.abs(imageData.data[i+2] - lastImageData.data[i+2]);
+                    
+                    if (rdiff > motionThreshold || gdiff > motionThreshold || bdiff > motionThreshold) {
+                        motionDetected++;
+                    }
+                }
+                if (motionDetected > motionPixels && !isAlarmPlaying) {
+                    status.textContent = "Status: Motion detected!";
+                    startAlarm();
+                }
+            }
+            lastImageData = imageData;
+            requestAnimationFrame(detectMotion);
+        }
+
+        function startAlarm() {
+            alarm.play();
+            isAlarmPlaying = true;
+            stopAlarmButton.style.display = 'block';
+        }
+
+        function stopAlarm() {
+            alarm.pause();
+            alarm.currentTime = 0;
+            isAlarmPlaying = false;
+            stopAlarmButton.style.display = 'none';
+            status.textContent = "Status: No motion detected";
+        }
+
+        stopAlarmButton.addEventListener('click', stopAlarm);
+
+        async function run() {
+            await setupWebcam();
+            detectMotion();
+        }
+
+        run();
+    </script>
+</center>
+</body>
+</html>
